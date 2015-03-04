@@ -115,6 +115,7 @@ SETGATE(intr, 0,1,2,3);
 - list_entry* en = (list_entry)malloc(sizeof(list_entry));
 - list_init(en);
 - return 0;}
+
 > 
 
 ---
