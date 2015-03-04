@@ -109,8 +109,13 @@ SETGATE(intr, 0,1,2,3);
 > 
 
 请分析 [list.h](https://github.com/chyyuu/ucore_lab/blob/master/labcodes/lab2/libs/list.h)内容中大致的含义，并能include这个文件，利用其结构和功能编写一个数据结构链表操作的小C程序
-- 声明了结构体：list的entry，即链表的入口。定义了链表的创建、添加、删除、清空等操作。
-
+- 声明了结构体：list的entry，即链表的条目。定义了链表的创建、添加、删除、清空等操作。
+- #include "list.h"
+- int main(){
+- list_entry* en = (list_entry)malloc(sizeof(list_entry));
+- list_init(en);
+- return 0;
+- }
 > 
 
 ---
