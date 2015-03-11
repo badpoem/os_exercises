@@ -59,7 +59,6 @@ lab1中的cprintf函数最终通过哪些外设完成了对字符串的输出？
 lab1中printfmt函数用到了可变参，请参考写一个小的linux应用程序，完成实现定义和调用一个可变参数的函数。(spoc)
 - #include "stdio.h"
 - #include "stdarg.h"
-
 - void show_args(int n, ...){
 - va_list ap;
 - int i;
@@ -71,7 +70,6 @@ lab1中printfmt函数用到了可变参，请参考写一个小的linux应用程
 - }
 - va_end(ap);
 - }
-
 - int main (int argc, char ** argv){
 - show_args(1, 2);
 - printf ("\n");
@@ -81,7 +79,7 @@ lab1中printfmt函数用到了可变参，请参考写一个小的linux应用程
 - printf ("\n");
 - return 0;
 - }
-函数show_args可以根据参数的不同打印出对应个数的整数。
+- 函数show_args可以根据参数的不同打印出对应个数的整数。
 
 
 
