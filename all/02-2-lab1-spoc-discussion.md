@@ -59,29 +59,29 @@ lab1中的cprintf函数最终通过哪些外设完成了对字符串的输出？
 
 lab1中printfmt函数用到了可变参，请参考写一个小的linux应用程序，完成实现定义和调用一个可变参数的函数。(spoc)
 - #include "stdio.h"
-#include "stdarg.h"
+- #include "stdarg.h"
 
-void show_args(int n, ...){
-va_list ap;
-int i;
-int x;
-va_start(ap, n);
-for (i = 0; i < n; i++){
-x = va_arg(ap, int);
-printf ("No. %d: %d\n", i+1, x);
-}
-va_end(ap);
-}
+-void show_args(int n, ...){
+-va_list ap;
+-int i;
+-int x;
+-va_start(ap, n);
+-for (i = 0; i < n; i++){
+-x = va_arg(ap, int);
+-printf ("No. %d: %d\n", i+1, x);
+-}
+-va_end(ap);
+-}
 
-int main (int argc, char ** argv){
-show_args(1, 2);
-printf ("\n");
-show_args(2, 1, 2);
-printf ("\n");
-show_args(5, 1, 3, 5, 7, 9);
-printf ("\n");
-return 0;
-}
+-int main (int argc, char ** argv){
+-show_args(1, 2);
+-printf ("\n");
+-show_args(2, 1, 2);
+-printf ("\n");
+-show_args(5, 1, 3, 5, 7, 9);
+-printf ("\n");
+-return 0;
+-}
 函数show_args可以根据参数的不同打印出对应个数的整数。
 
 
