@@ -12,8 +12,6 @@ NOTICE
 
 请描述ucore OS配置和驱动外设时钟的准备工作包括哪些步骤？ (w2l2)
 
--首先初始化中断描述符表，即向idt数组中写入对应的中断服务例程地址，最后通过执行lidt指令告诉CPU中断描述符表地址。在这之前进行PIC即8259A中断控制器的初始化，包括设置中断掩码，中断向量表偏移量等等，完成master和slave的设置。最后进行的时钟外设初始化，设置了8253时钟，同时将计数器ticks置0再打开IRQ_TIMER的支持。
-
 >
 
 ```
@@ -23,7 +21,8 @@ NOTICE
   - 除第二点外，进一步描述了对8259中断控制器的初始过程（2分）
   - 除上述两点外，进一步描述了对8253时钟外设的初始化，或描述了对EFLAG操作使能中断（3分）
  ```
-- [x]  
+- 首先初始化中断描述符表，即向idt数组中写入对应的中断服务例程地址，最后通过执行lidt指令告诉CPU中断描述符表地址。在这之前进行PIC即8259A中断控制器的初始化，包括设置中断掩码，中断向量表偏移量等等，完成master和slave的设置。最后进行的时钟外设初始化，设置了8253时钟，同时将计数器ticks置0再打开IRQ_TIMER的支持。
+
 
 >  
 
@@ -61,34 +60,35 @@ lab1中printfmt函数用到了可变参，请参考写一个小的linux应用程
 - #include "stdio.h"
 - #include "stdarg.h"
 
--void show_args(int n, ...){
--va_list ap;
--int i;
--int x;
--va_start(ap, n);
--for (i = 0; i < n; i++){
--x = va_arg(ap, int);
--printf ("No. %d: %d\n", i+1, x);
--}
--va_end(ap);
--}
+- void show_args(int n, ...){
+- va_list ap;
+- int i;
+- int x;
+- va_start(ap, n);
+- for (i = 0; i < n; i++){
+- x = va_arg(ap, int);
+- printf ("No. %d: %d\n", i+1, x);
+- }
+- va_end(ap);
+- }
 
--int main (int argc, char ** argv){
--show_args(1, 2);
--printf ("\n");
--show_args(2, 1, 2);
--printf ("\n");
--show_args(5, 1, 3, 5, 7, 9);
--printf ("\n");
--return 0;
--}
+- int main (int argc, char ** argv){
+- show_args(1, 2);
+- printf ("\n");
+- show_args(2, 1, 2);
+- printf ("\n");
+- show_args(5, 1, 3, 5, 7, 9);
+- printf ("\n");
+- return 0;
+- }
 函数show_args可以根据参数的不同打印出对应个数的整数。
 
 
 
 如果让你来一个阶段一个阶段地从零开始完整实现lab1（不是现在的填空考方式），你的实现步骤是什么？（比如先实现一个可显示字符串的bootloader（描述一下要实现的关键步骤和需要注意的事项），再实现一个可加载ELF格式文件的bootloader（再描述一下进一步要实现的关键步骤和需要注意的事项）...） (spoc)
 - 首先实现一个可以显示字符串的bootloader，分别先后实现初始寄存器内容；设备管理，封装串口、并口和CGA以完成字符和字符串的输出；实现实模式到保护模式的切换；实现设置栈；实现对字符串的显示，即在实模式转换到保护模式后可以在保护模式下通过PIO方式控制串口、并口和CGA等输出字符串并显示。
-- 然后实现可读ELF格式文件的bootloader，实现基于可显示字符串的bootloader，首先可读硬盘，然后可以分析并加载ELF格式文件。
+- 然后实现可读ELF格式文件的bootloader，实现基于可显示字符串的bootloader，首先可读硬盘，然后可以分析并加载ELF格式文件。(注意：由于bootloader要放在512字节大小的主引导扇区中，所以需要去掉部分显示输出的功能，确保整个bootloader的大小小于510
+个字节（最后两个字节用于硬盘主引导扇区标识，即“55AA”）。)
 - 然后增加一个可以显示字符的操作系统ucore，用于验证实现的bootloader可以正确地从硬盘中读出ucore并且加载到正确的内存位置，并且跳转到ucore的起始处，把CPU的控制权交给ucore。ucore获得CPU控制权后能够在保护模式下显示一个字符串，以证明能够正常工作。
 - 然后实现能够显示函数调用关系的ucore，分析出ucore在执行过程中的函数调用关系和函数传递的参数。
 - 然后实现可以管理中断并处理中断方式I/O的ucore，通过中断机制完成设备中断请求处理，首先是初始化中断，涉及初始化中断控制器和中断门描述符表和各种外设，然后是中断服务，在收到中断后进行处理。
