@@ -36,8 +36,8 @@ NOTICE
 -程序代码如下
 
 '''
-#!/usr/bin/python
-#coding: utf-8
+ #!/usr/bin/python
+ #coding: utf-8
 
 class PmmManager():
     def __init__(self, init_block):
