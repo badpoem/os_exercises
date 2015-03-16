@@ -33,6 +33,82 @@ NOTICE
 
 请参考ucore lab2代码，采用`struct pmm_manager` 根据你的`学号 mod 4`的结果值，选择四种（0:最优匹配，1:最差匹配，2:最先匹配，3:buddy systemm）分配算法中的一种或多种，在应用程序层面(可以 用python,ruby,C++，C，LISP等高语言)来实现，给出你的设思路，并给出测试用例。 (spoc)
 
+-程序代码如下
+
+'''
+#!/usr/bin/python
+#coding: utf-8
+
+class PmmManager():
+    def __init__(self, init_block):
+        self.freed = [init_block]  # (size, start_address)
+        self.used = []
+    
+    def near_block(self, block1, block2):
+        if block1[1] < block2[1]:
+            if block1[1] + block1[0] == block2[1]:
+                return True
+            else:
+                return False
+        else:
+            if block2[1] + block2[0] == block1[1]:
+                return True
+            else:
+                return False
+
+    def merge_block(self, block1, block2):
+        if block1[1] < block2[1]:
+            return (block1[1], block1[0] + block2[0])
+        else:
+            return (block2[1], block1[0] + block2[0])
+
+    def malloc(self, size):
+        if len(self.freed) == 0 or self.freed[0][0] < size:
+            return None                               # Not enough space
+        else:
+            block = self.freed[0]                     # Try the first block
+            pointer = (size, block[1])                # Space to return
+            self.freed.pop(0)
+            self.used.append((block[1], size))
+            self.freed.append((block[0] - size, block[1] + size))
+            self.freed.sort(reverse=True)                   # Sort by size (big to small)
+            return pointer 
+
+    def free(self, block):
+        if block not in self.used:
+            return False                              # Cannot find the block
+        else:
+            self.used.remove(block)
+            while True:
+                merged = False
+                for item in self.freed:
+                    if near_block(item, block):
+                        block = merge_block(item, block)
+                        self.freed.remove(item)
+                        merged = True
+                if merged is False:
+                    break
+            self.freed.append(block)
+            self.freed.sort(reverse=True)
+            return True
+
+def test_pmm():
+    pmm = PmmManager((64, 0x00))
+    space1 = pmm.malloc(16)
+    print '[+] Malloc:' + str(space1)
+    space2 = pmm.malloc(32)
+    print '[+] Malloc:' + str(space2)
+    space3 = pmm.malloc(32)
+    print '[+] Malloc:' + str(space3)
+    pmm.free(space2)
+    print '[-] Free:' + str(space2)
+
+if __name__ == "__main__":
+    test_pmm()
+'''
+
+-  程序思路是使用2元组（块大小， 块起始地址）来表示一块内存空间，使用的分配方式为最差匹配，每次从freed表头部取出最大的那个块使用，切块之后分配过的空间放入used表中，然后每次分配结束对freed表进行从大到小排序即可。释放时不断检查释放块与freed表中各块是否相邻，然后合并即可。
+
 --- 
 
 ## 扩展思考题
