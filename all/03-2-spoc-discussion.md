@@ -33,10 +33,10 @@ NOTICE
 
 （1）(spoc) 某系统使用请求分页存储管理，若页在内存中，满足一个内存请求需要150ns。若缺页率是10%，为使有效访问时间达到0.5ms,求不在内存的页面的平均访问时间。请给出计算步骤。 
 
-- 解：设不在内存的页面的平均访问时间为x ns
+- 解：设不在内存的页面的平均访问时间为x us(陈老师课上表示修改为微秒)
 - 则由题有 150\*(1-10%)+x\*10%=500
 - 解得 x=3650
-- 故不在内存的页面的平均访问时间为3650ns 合3.65ms
+- 故不在内存的页面的平均访问时间为3650us 合3.65ms
 
 > 500=0.9\*150+0.1\*x
 
@@ -88,6 +88,118 @@ Virtual Address 7268:
       --> Translates to Physical Address 0xca8 --> Value: 16
 ```
 
+- 使用一个python的脚本来完成工作，首先从testdata文件中dump出内存数据，然后根据输入的虚拟地址进行转换即可。
+
+```
+    #!/usr/bin/python
+    # coding: utf-8
+
+    pdbr = 0x220
+    valid_mask = 0x80
+    valid_shift = 7
+    pde_mask = 0x7c00
+    pde_shift = 10
+    pte_mask = 0x03e0
+    pte_shift = 5
+    pfn_mask = 0x007f
+
+    offset_mask = 0x001f
+    page_mask = 0x0fe0
+
+    memory = []    # Memory data
+
+    def read_byte(memaddr):
+        return memory[(memaddr & page_mask) >> 5][memaddr & offset_mask]
+
+    def dump_memory():
+        filename = '03-2-spoc-testdata.md'
+        lines = range(5, 133)
+        data = open(filename, 'r').readlines()
+        for i in lines:
+            l = data[i][8:].strip().split(' ')
+            memory.append([int(x, 16) for x in l])
+
+    def mmu(va):
+        print 'Virtual Address 0x%04x' % va
+        
+        # first find pde
+        pde_index = (va & pde_mask) >> pde_shift
+        pde_entry = read_byte(pdbr + pde_index)
+        valid = (pde_entry & valid_mask) >> valid_shift
+        pfn = pde_entry & pfn_mask
+        print '  --> pde index:0x%02x pde contents:(valid %d, pfn 0x%02x)' % (pde_index, valid, pfn)
+
+        if valid == 0:
+            print '    --> Fault (page directory entry not valid)'
+            return
+
+        # then find pte
+        pte_index = (va & pte_mask) >> pte_shift
+        pte_entry = memory[pfn][pte_index] 
+        valid = (pte_entry & valid_mask) >> valid_shift
+        pfn = pte_entry & pfn_mask
+        print '    --> pte index:0x%02x pte contents:(valid %d, pfn 0x%02x)' % (pte_index, valid, pfn)
+
+        if valid == 0:
+            print '      --> Fault (page table entry not valid)'
+            return
+
+        # at last get the physical value
+
+        ph_addr = (pfn << 5) + (va & offset_mask)
+        print '      --> Translates to Physical Address 0x%03x --> Value: 0x%02x' % (ph_addr, read_byte(ph_addr))
+
+
+    if __name__ == '__main__':
+        dump_memory()
+        vas = [0x6c74, 0x6b22, 0x03df, 0x69dc, 0x317a, 0x4546, 0x2c03, 0x7fd7, 0x390e, 0x748b]
+        for va in vas:
+            mmu(va)
+```
+
+- 运行脚本得到输出
+
+```
+Virtual Address 0x6c74
+  --> pde index:0x1b pde contents:(valid 1, pfn 0x20)
+    --> pte index:0x03 pte contents:(valid 1, pfn 0x61)
+      --> Translates to Physical Address 0xc34 --> Value: 0x06
+Virtual Address 0x6b22
+  --> pde index:0x1a pde contents:(valid 1, pfn 0x52)
+    --> pte index:0x19 pte contents:(valid 1, pfn 0x47)
+      --> Translates to Physical Address 0x8e2 --> Value: 0x1a
+Virtual Address 0x03df
+  --> pde index:0x00 pde contents:(valid 1, pfn 0x5a)
+    --> pte index:0x1e pte contents:(valid 1, pfn 0x05)
+      --> Translates to Physical Address 0x0bf --> Value: 0x0f
+Virtual Address 0x69dc
+  --> pde index:0x1a pde contents:(valid 1, pfn 0x52)
+    --> pte index:0x0e pte contents:(valid 0, pfn 0x7f)
+      --> Fault (page table entry not valid)
+Virtual Address 0x317a
+  --> pde index:0x0c pde contents:(valid 1, pfn 0x18)
+    --> pte index:0x0b pte contents:(valid 1, pfn 0x35)
+      --> Translates to Physical Address 0x6ba --> Value: 0x1e
+Virtual Address 0x4546
+  --> pde index:0x11 pde contents:(valid 1, pfn 0x21)
+    --> pte index:0x0a pte contents:(valid 0, pfn 0x7f)
+      --> Fault (page table entry not valid)
+Virtual Address 0x2c03
+  --> pde index:0x0b pde contents:(valid 1, pfn 0x44)
+    --> pte index:0x00 pte contents:(valid 1, pfn 0x57)
+      --> Translates to Physical Address 0xae3 --> Value: 0x16
+Virtual Address 0x7fd7
+  --> pde index:0x1f pde contents:(valid 1, pfn 0x12)
+    --> pte index:0x1e pte contents:(valid 0, pfn 0x7f)
+      --> Fault (page table entry not valid)
+Virtual Address 0x390e
+  --> pde index:0x0e pde contents:(valid 0, pfn 0x7f)
+    --> Fault (page directory entry not valid)
+Virtual Address 0x748b
+  --> pde index:0x1d pde contents:(valid 1, pfn 0x00)
+    --> pte index:0x04 pte contents:(valid 0, pfn 0x7f)
+      --> Fault (page table entry not valid)
+```
 
 
 （3）请基于你对原理课二级页表的理解，并参考Lab2建页表的过程，设计一个应用程序（可基于python, ruby, C, C++，LISP等）可模拟实现(2)题中描述的抽象OS，可正确完成二级页表转换。
