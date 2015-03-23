@@ -28,7 +28,7 @@ x86保护模式中权限管理无处不在，下面哪些时候要检查访问�
   - 除上述两点外，进一步描述了页表建立初始过程和设置CR0控寄存器某位来使能页（3分）
 
  ```
-- [x]  
+- pmm_init函数主要完成建立页机制的工作。调用了gdt_init函数对GDT进行最后的初始化，此函数设置了内核栈以及默认的SS0，接着初始化TSS，最后调用lgdt重新写入段寄存器的值。调用page_init函数对物理内存空间进行探测，并释放已用空间，调用pmm_manager中的init_memmap以便对空闲内存进行管理。最后执行enable_paging函数使能页机制，设置CR0寄存器的相关位CR0_PE, CR0_PG, CR0_AM, CR0_WP, CR0_NE, CR0_TS, CR0_EM, CR0_MP，CR0_TS，CR0_EM。
 
 >  
 
@@ -39,7 +39,7 @@ x86保护模式中权限管理无处不在，下面哪些时候要检查访问�
 
 （1）（spoc）请用lab1实验的基准代码（即没有修改的需要填空的源代码）来做如下实验： 执行`make qemu`，会得到一个输出结果，请给出合理的解释：为何qemu退出了？【提示】需要对qemu增加一些用于基于执行过的参数，重点是分析其执行的指令和产生的中断或异常。 
 
-- [x]  
+- 由于基准代码中并没有初始化中断描述符表，使得系统不能处理对应的时钟中断和其他外设中断，随后触发double fault异常造成系统崩溃。
 
 > 
 
@@ -54,7 +54,36 @@ x86保护模式中权限管理无处不在，下面哪些时候要检查访问�
 ```    
 然后，请回答加入这条语句后，执行`make qemu`的输出结果与你没有加入这条语句后执行`make qemu`的输出结果的差异，并解释为什么有差异或没差异？ 
 
-- [x]  
+- 我的学号 mod 37后为6，故在初始化中断请求后直接执行int $6，6号中断为Illegal opcode，而系统无法处理此中断请求，产生了如下输出
+
+```
+trapframe at 0x7b6c
+  edi  0x00000001
+  esi  0x00000000
+  ebp  0x00007bc8
+  oesp 0x00007b8c
+  ebx  0x00010094
+  edx  0x000000a1
+  ecx  0x00000000
+  eax  0x000000ff
+  ds   0x----0010
+  es   0x----0010
+  fs   0x----0023
+  gs   0x----0023
+  trap 0x00000006 Invalid Opcode
+  err  0x00000000
+  eip  0x0010006b
+  cs   0x----0008
+  flag 0x00000206 PF,IF,IOPL=0
+kernel panic at kern/trap/trap.c:183:
+    unexpected trap in kernel.
+
+Welcome to the kernel debug monitor!!
+Type 'help' for a list of commands.
+K> 
+```
+
+- 程序进入了kmonitor.c中，因为这个trap系统无法处理则进入了debug的命令行。
 
 > 
 
@@ -108,7 +137,62 @@ va 0xce6c3f32, pa 0x007d4f32
 va 0xcd82c07c, pa 0x0c20907c, pde_idx 0x00000336, pde_ctx  0x00037003, pte_idx 0x0000002c, pte_ctx  0x0000c20b
 ```
 
-- [x]  
+- 程序如下(样例位于test.txt文件中)
+
+```
+    #!/usr/bin/env python
+    # coding: utf-8
+
+    pde_mask = 0xffc00000
+    pde_shift = 22
+    pte_mask = 0x003ff000
+    pte_shift = 12
+    page_mask = 0xfffff000
+    page_shift = 12
+
+    def read_testdata(filename='test.txt'):
+        f = open(filename, 'r')
+        test_case = []
+        for line in f.readlines():
+            addr = line.split(',')
+            va = int(addr[0].strip().split(' ')[1][2:], 16)
+            pa = int(addr[1].strip().split(' ')[1][2:], 16)
+            test_case.append((va, pa))
+        f.close()
+        return test_case
+
+    def translate(data):
+        outtitle = ['va', 'pa', 'pde_idx', 'pde_ctx', 'pte_idx', 'pte_ctx']
+        for item in data:
+            va = item[0]
+            pa = item[1]
+            pde_idx = (va & pde_mask) >> pde_shift
+            pde_ctx = ((pde_idx - 0x300 + 1) << 12) | 0x003
+            pte_idx = (va & pte_mask) >> pte_shift
+            pte_ctx = (pa & page_mask) | 0x003 
+            outdata = [va, pa, pde_idx, pde_ctx, pte_idx, pte_ctx]
+            for k, v in zip(outtitle, outdata):
+                print k + ': 0x%08x, ' % v,
+            print
+
+    if __name__ == '__main__':
+        translate(read_testdata())
+```
+
+- 得到的输出为
+
+```
+va: 0xc2265b1f,  pa: 0x0d8f1b1f,  pde_idx: 0x00000308,  pde_ctx: 0x00009003,  pte_idx: 0x00000265,  pte_ctx: 0x0d8f1003, 
+va: 0xcc386bbc,  pa: 0x0414cbbc,  pde_idx: 0x00000330,  pde_ctx: 0x00031003,  pte_idx: 0x00000386,  pte_ctx: 0x0414c003, 
+va: 0xc7ed4d57,  pa: 0x07311d57,  pde_idx: 0x0000031f,  pde_ctx: 0x00020003,  pte_idx: 0x000002d4,  pte_ctx: 0x07311003, 
+va: 0xca6cecc0,  pa: 0x0c9e9cc0,  pde_idx: 0x00000329,  pde_ctx: 0x0002a003,  pte_idx: 0x000002ce,  pte_ctx: 0x0c9e9003, 
+va: 0xc18072e8,  pa: 0x007412e8,  pde_idx: 0x00000306,  pde_ctx: 0x00007003,  pte_idx: 0x00000007,  pte_ctx: 0x00741003, 
+va: 0xcd5f4b3a,  pa: 0x06ec9b3a,  pde_idx: 0x00000335,  pde_ctx: 0x00036003,  pte_idx: 0x000001f4,  pte_ctx: 0x06ec9003, 
+va: 0xcc324c99,  pa: 0x0008ac99,  pde_idx: 0x00000330,  pde_ctx: 0x00031003,  pte_idx: 0x00000324,  pte_ctx: 0x0008a003, 
+va: 0xc7204e52,  pa: 0x0b8b6e52,  pde_idx: 0x0000031c,  pde_ctx: 0x0001d003,  pte_idx: 0x00000204,  pte_ctx: 0x0b8b6003, 
+va: 0xc3a90293,  pa: 0x0f1fd293,  pde_idx: 0x0000030e,  pde_ctx: 0x0000f003,  pte_idx: 0x00000290,  pte_ctx: 0x0f1fd003, 
+va: 0xce6c3f32,  pa: 0x007d4f32,  pde_idx: 0x00000339,  pde_ctx: 0x0003a003,  pte_idx: 0x000002c3,  pte_ctx: 0x007d4003,
+```
 
 > 
 
