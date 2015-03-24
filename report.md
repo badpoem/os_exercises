@@ -216,8 +216,10 @@ call bootmain
 - 其中需要注意对ebp进行判断，ebp为0时候堆栈已超过0x7c00，需要break跳出循环。
 
 - 最后一行输出为：
-- ebp is 0x00007bf8, eip is 0x00007d68, argu[0] is 0c031fcfa, argu[1] is 0c08ed88e, argu[2] is 064e4d08e, argu[3] is 0fa7502a8, 
--     <unknown>: -- 0x00007d67 --
+```
+ebp is 0x00007bf8, eip is 0x00007d68, argu[0] is 0c031fcfa, argu[1] is 0c08ed88e, argu[2] is 064e4d08e, argu[3] is 0fa7502a8, 
+   <unknown>: -- 0x00007d67 --
+```
 - 对应栈底，即第一个使用堆栈的函数bootmain，由于bootloader设置堆栈从0x7c00开始，而使用call bootmain调用bootmain，故call指令压栈， ebp:0x7bf8对应为bootmain
 
 >
