@@ -35,6 +35,25 @@ time ./goodlocality
 ```
 可以看到其执行时间。
 
+- 可以直接将上一个程序中的A[i][j] = i+j; 改为A[j][i] = i+j; 就可以写成一个局部性差的例子。用time测试的结果为
+
+```
+===========Good Locality============
+10485760 count computing over!
+
+real	0m0.082s
+user	0m0.074s
+sys	0m0.004s
+===========Bad Locality=============
+10485760 count computing over!
+
+real	0m0.606s
+user	0m0.563s
+sys	0m0.007s
+```
+
+- 从上面的结果可以看出局部性差的结果606ms比局部性好的结果82ms的时间差了数倍。这是由于c程序的数组是行存储的，一次会将一行调入cache中读写速度比较快，而如果每次都读取不同行的数据则需要不断访问主存运行时间就会增长。
+
 ## 小组思考题目
 ----
 
@@ -115,6 +134,122 @@ Virtual Address 1e6f(0 001_11 10_011 0_1111):
   disk 16: 00 0a 15 1a 03 00 09 13 1c 0a 18 03 13 07 17 1c 
            0d 15 0a 1a 0c 12 1e 11 0e 02 1d 10 15 14 07 13
       --> To Disk Sector Address 0x2cf(0001011001111) --> Value: 1c
+```
+
+- 程序如下
+
+```
+    #!/usr/bin/env python
+    # coding: utf-8
+
+    __author__ = 'Pei Zhongyu'
+
+    pdbr = 0xd80
+    valid_mask = 0x80
+    valid_shift = 7
+    pde_mask = 0x7c00
+    pde_shift = 10
+    pte_mask = 0x03e0
+    pte_shift = 5
+    pfn_mask = 0x007f
+    offset_mask = 0x001f
+    page_mask = 0x0fe0
+
+    memory = []    # Memory data
+    disk = []      # Disk data
+
+    mem_lines = range(5, 133)
+    disk_lines = range(137, 265)
+
+    def print_page(pageaddr, title='page', target=memory):
+        print '  ' + title + ' %02x:' % pageaddr,
+        for i in target[pageaddr]:
+            print '%02x' % i,
+        print
+
+    def read_byte(memaddr, target=memory):
+        return target[(memaddr & page_mask) >> 5][memaddr & offset_mask]
+
+    def dump_memory(filename='04-1-spoc-memdiskdata.md', lines=mem_lines, target=memory):
+        data = open(filename, 'r').readlines()
+        for i in lines:
+            l = data[i][8:].strip().split(' ')
+            target.append([int(x, 16) for x in l])
+
+    def mmu(va):
+        print
+        print 'Virtual Address 0x%04x' % va
+        
+        # first find pde
+        pde_index = (va & pde_mask) >> pde_shift
+        pde_entry = read_byte(pdbr + pde_index)
+        valid = (pde_entry & valid_mask) >> valid_shift
+        pfn = pde_entry & pfn_mask
+        print '  --> pde index:0x%02x pde contents:(valid %d, pfn 0x%02x)' % (pde_index, valid, pfn)
+
+        if valid == 0 or pde_index > 7:
+            print '    --> Fault (page directory entry not valid)'
+            return
+        print_page(pfn) 
+        
+        # then find pte
+        pte_index = (va & pte_mask) >> pte_shift
+        pte_entry = memory[pfn][pte_index] 
+        valid = (pte_entry & valid_mask) >> valid_shift
+        pfn = pte_entry & pfn_mask
+        print '    --> pte index:0x%02x pte contents:(valid %d, pfn 0x%02x)' % (pte_index, valid, pfn)
+
+        # switch to disk
+        if valid == 0:
+            disk_addr = (pfn << 5) + (va & offset_mask)
+            print_page(pfn, 'disk', disk)
+            print '      --> To Disk Sector Address 0x%03x --> Value: 0x%02x' % (disk_addr, read_byte(disk_addr, disk))
+        else:
+            # at last get the physical value
+            ph_addr = (pfn << 5) + (va & offset_mask)
+            print_page(pfn)
+            print '      --> To Physical Address 0x%03x --> Value: 0x%02x' % (ph_addr, read_byte(ph_addr))
+
+    if __name__ == '__main__':
+        dump_memory(lines=mem_lines, target=memory)
+        dump_memory(lines=disk_lines, target=disk)
+        test_vas = [0x0330, 0x1e6f]
+        vas = [0x6653, 0x1c13, 0x6890, 0x0af6, 0x1e6f]
+        for va in vas:
+            mmu(va)
+```
+
+- 得到的输出为
+
+```
+Virtual Address 0x6653
+  --> pde index:0x19 pde contents:(valid 0, pfn 0x7f)
+    --> Fault (page directory entry not valid)
+
+Virtual Address 0x1c13
+  --> pde index:0x07 pde contents:(valid 1, pfn 0x3d)
+  page 3d: f6 7f 5d 4d 7f 04 29 7f 1e 7f ef 51 0c 1c 7f 7f 7f 76 d1 16 7f 17 ab 55 9a 65 ba 7f 7f 0b 7f 7f
+    --> pte index:0x00 pte contents:(valid 1, pfn 0x76)
+  page 76: 1a 1b 1c 10 0c 15 08 19 1a 1b 12 1d 11 0d 14 1e 1c 18 02 12 0f 13 1a 07 16 03 06 18 0a 19 03 04
+      --> To Physical Address 0xed3 --> Value: 0x12
+
+Virtual Address 0x6890
+  --> pde index:0x1a pde contents:(valid 0, pfn 0x7f)
+    --> Fault (page directory entry not valid)
+
+Virtual Address 0x0af6
+  --> pde index:0x02 pde contents:(valid 1, pfn 0x21)
+  page 21: 7f 7f 36 8e 7f 33 d5 82 7f 7f 79 2b 7f 7f 7f 7f 7f f1 7f 7f 71 7f 7f 7f 63 7f 2f dd 67 7f f9 32
+    --> pte index:0x17 pte contents:(valid 0, pfn 0x7f)
+  disk 7f: 07 1a 19 1d 15 0f 1d 01 1c 17 06 09 1a 03 08 04 06 04 0a 1b 12 04 03 1e 07 08 05 08 1d 0b 0c 0a
+      --> To Disk Sector Address 0xff6 --> Value: 0x03
+
+Virtual Address 0x1e6f
+  --> pde index:0x07 pde contents:(valid 1, pfn 0x3d)
+  page 3d: f6 7f 5d 4d 7f 04 29 7f 1e 7f ef 51 0c 1c 7f 7f 7f 76 d1 16 7f 17 ab 55 9a 65 ba 7f 7f 0b 7f 7f
+    --> pte index:0x13 pte contents:(valid 0, pfn 0x16)
+  disk 16: 00 0a 15 1a 03 00 09 13 1c 0a 18 03 13 07 17 1c 0d 15 0a 1a 0c 12 1e 11 0e 02 1d 10 15 14 07 13
+      --> To Disk Sector Address 0x2cf --> Value: 0x1c
 ```
 
 ## 扩展思考题
