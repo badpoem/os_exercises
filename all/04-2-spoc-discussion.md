@@ -73,7 +73,7 @@ S(1)=1,2,...N, S'(1)=1,2,...N, 证明LRU算法在S'大小为N+k时候缺失率�
 (2)（spoc）根据你的`学号 mod 4`的结果值，确定选择四种替换算法（0：LRU置换算法，1:改进的clock 页置换算法，2：工作集页置换算法，3：缺页率置换算法）中的一种来设计一个应用程序（可基于python, ruby, C, C++，LISP等）模拟实现，并给出测试。请参考如python代码或独自实现。
  - [页置换算法实现的参考实例](https://github.com/chyyuu/ucore_lab/blob/master/related_info/lab3/page-replacement-policy.py)
 
-代码如下
+①代码如下(改进的clock页置换算法)
 
 ```
 #!/usr/bin/env python
@@ -144,6 +144,78 @@ if __name__ == '__main__':
     access_list = [(0,'r'), (1,'r'), (3, 'w'), (10, 'w'), (2, 'r'), (5, 'w'), (9, 'r'), (0, 'w'), (11, 'r')]
     miss = test_clock(memory_size, access_list)
     print 'miss=%d' % miss 
+```
+
+②代码如下(工作集页置换算法)
+```
+# coding: utf-8
+# working-set page-replacement algo
+
+def test_working_set(access_list, window_size = 4):
+    memory = []
+    miss = 0
+
+    #start resovling
+    for i in range(0, len(access_list)):
+        if access_list[i] in memory:
+            res = 'hit'
+        else:
+            res = 'miss'
+            miss += 1
+
+        memory = []
+        memory.append(access_list[i])
+        for j in range(1, window_size):
+            if (i - j >= 0) and not(access_list[i - j] in memory):
+                memory.append(access_list[i - j])
+        memory.sort()
+
+        print i + 1, ': visit', access_list[i], res, str(memory)
+    return miss
+        
+if __name__ == '__main__':
+    access_list = ['c','c','d','b','c','e','c','e','a','d','f','h','a','c','d','z','y','a','x']
+    miss = test_working_set(access_list)
+    print 'miss times:%d' %miss
+```
+
+③代码如下(缺页率置换算法)
+```
+#!/usr/bin/env python
+# coding: utf-8
+# Page Fault Frequence Algo
+
+def test_pff(access_list, T=2):
+    memory = []
+    last_miss = -1
+    miss = 0
+
+    #start resolving
+    for i, item in enumerate(access_list):
+        print 'access %s:' % item,
+        if item in memory:
+            print 'hit!',
+        else:
+            print 'miss. ',
+            if i - last_miss <= T or last_miss == -1:
+                print 'add to memory.',
+            else:
+                for page in memory:
+                    if page not in access_list[last_miss:i+1]:
+                        print 'remove %s.' % page,
+                        memory.remove(page)
+            memory.append(item)
+            miss += 1
+            last_miss = i
+        memory.sort()
+        print 'now in memory:' + str(memory)
+    return miss
+
+if __name__ == '__main__':
+    access_list = ['a', 'd', 'e', 'c', 'c', 'd', 'b', 'c', 'e', 'c', 'e', 'a', 'd']
+    miss = test_pff(access_list)
+    print 'Miss times:%d' % miss
+
 ```
 
 ## 扩展思考题
