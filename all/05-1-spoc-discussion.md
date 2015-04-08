@@ -154,8 +154,7 @@ Time     PID: 0     PID: 1
 ```
 代码如下
 ```
-{{{code: lang="python" linenumbers="true"
-      #! /usr/bin/env python
+    #! /usr/bin/env python
 
     import sys
     from optparse import OptionParser
@@ -372,5 +371,4 @@ Time     PID: 0     PID: 1
         print ''
         print 'Stats: Total Time %d' % clock_tick
         print ''
-}}}
 ```
