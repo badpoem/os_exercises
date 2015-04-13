@@ -153,8 +153,8 @@ Time     PID: 0     PID: 1
  11     RUNNING       DONE 
 ```
 代码如下
-```
-    #! /usr/bin/env python
+{{{code: lang="python" linenumbers="true"
+      #! /usr/bin/env python
 
     import sys
     from optparse import OptionParser
@@ -371,4 +371,4 @@ Time     PID: 0     PID: 1
         print ''
         print 'Stats: Total Time %d' % clock_tick
         print ''
-```
+}}}
