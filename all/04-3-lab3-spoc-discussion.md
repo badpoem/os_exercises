@@ -108,7 +108,50 @@ NOTICE
 
 (2)(spoc) 理解内存访问的异常。在x86中内存访问会受到段机制和页机制的两层保护，请基于lab3_results的代码（包括lab1的challenge练习实现），请实践并分析出段机制和页机制各种内存非法访问的后果。，可4人一个小组，，找出尽可能多的各种内存访问异常，并在代码中给出实现和测试用例，在执行了测试用例后，ucore能够显示出是出现了哪种异常和尽量详细的错误信息。请在说明文档中指出：某种内存访问异常的原因，硬件的处理过程，以及OS如何处理，是否可以利用做其他有用的事情（比如提供比物理空间更大的虚拟空间）？哪些段异常是否可取消，并用页异常取代？
 
-- page fault : 访问非法地址，如__asm__("mov %eax, 0x00000");
-- invalid opcode ： 非法指令，如跳转到一个非法指令__asm__("jmp 0xc010009c");
+Page Fault触发
+随意访问一个非法地址即可，如：__asm__("mov %eax, 0x00000");
+ 
+Invalid Op Code触发
+跳转到一个非法指令，如在init.c中的kern_init函数改为：
 
->
+```
+int
+kern_init(void) {
+    extern char edata[], end[];
+    memset(edata, 0, end - edata);
+
+    cons_init();                // init the console
+
+    const char *message = "(THU.CST) os is loading ...";
+    cprintf("%s\n\n", message);
+
+    print_kerninfo();
+
+    grade_backtrace();
+
+    pmm_init();                 // init physical memory management
+
+    pic_init();                 // init interrupt controller
+    idt_init();                 // init interrupt descriptor table
+
+    vmm_init();                 // init virtual memory management
+
+    ide_init();                 // init ide devices
+    swap_init();                // init swap
+
+    __asm__("jmp 0xc010009c"); // Invalid Opcode
+    // __asm__("mov %eax, 0x00000"); //Page Fault
+
+    clock_init();               // init clock interrupt
+    intr_enable();              // enable irq interrupt
+
+    //LAB1: CAHLLENGE 1 If you try to do it, uncomment lab1_switch_test()
+    // user/kernel mode switch test
+    //lab1_switch_test();
+
+    /* do nothing */
+    while (1);
+}
+
+```
+---
