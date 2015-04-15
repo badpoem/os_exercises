@@ -7,11 +7,11 @@
 ### 总体介绍
 
 (1) ucore的线程控制块数据结构是什么？
-
+tcb
 ### 关键数据结构
 
 (2) 如何知道ucore的两个线程同在一个进程？
-
+cr3 parent
 (3) context和trapframe分别在什么时候用到？
 
 (4) 用户态或内核态下的中断处理有什么区别？在trapframe中有什么体现？
@@ -30,7 +30,7 @@ tf.tf_eip = (uint32_t) kernel_thread_entry;
 tf和context中的esp
 ```
 
-(7)fork()父子进程的返回值是不同的。这在源代码中的体现中哪？
+(7)fork()父子进程的返回值是不同的。这在源代码中的体现中哪？(☆)
 
 (8)内核线程initproc的第一次执行流程是什么样的？能跟踪出来吗？
 
@@ -55,6 +55,11 @@ tf和context中的esp
 > 注意 state、pid、cr3，context，trapframe的含义
 
 ### 练习2：分析并描述新创建的内核线程是如何分配资源的
+新创建的内核线程，分别进行了kstack trapframe context的资源分配
+kstack的初始化setup_kstack函数 调用alloc_page分配页面，然后调用page2kva得到页对应的内核虚拟地址，即为堆栈起始地址
+trapframe的初始化copy_thread函数 为trapframe分配地址空间，由这一句"proc->tf = (struct trapframe * )(proc->kstack+KSTACKSIZE)-1)"可知其终止地址为kstack的栈顶，利用传入的参数tf对其进行初始，然后对寄存器进行相应设置
+context的初始化copy_thread函数 为context的eip esp赋初值
+然后便完成了资源的分配。
 
 > 注意 理解对kstack, trapframe, context等的初始化
 
