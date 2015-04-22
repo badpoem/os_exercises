@@ -56,6 +56,9 @@
 　- response time 响应时间
 　- wait time　等待时间
 
+- SJF FIFO RR stride调度算法 参见https://github.com/BrieflyX/ucore_lab/blob/master/related_info/lab6/scheduler-homework.py
+- MLFQ调度算法 参见https://github.com/badpoem/MLFQ
+
 ### 对模拟环境的抽象
 - 任务/进程，及其执行时间
   Job 0 (length = 1)
