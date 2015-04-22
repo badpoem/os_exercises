@@ -46,6 +46,59 @@ https://github.com/chyyuu/ucore_lab/blob/master/related_info/lab1/lab1-boot-with
 
 (报告可课后完成)请理解grub multiboot spec的含义，并分析ucore_lab是如何实现符合grub multiboot spec的，并形成spoc练习报告。
 
+spoc练习报告
+
+grub multiboot的规范要求OS的镜像文件头部需要遵循一定的格式，要求Multiboot头需要完整包含于OS映像的前8192字节，且必须是4字节对齐。一般位于text段的起始地址处。
+
+Multiboot头的分布为
+```
+Offset  Type    Name
+0       32bit   magic           magic number，必须为0x1BADB002
+4       32bit   flags           必需
+8       32bit   checksum        校验和，必需
+12      32bit   header_addr     if flags[16] == 1
+16      32bit   load_addr       if flags[16] == 1
+20      32bit   load_end_addr   if flags[16] == 1
+24      32bit   bss_end_addr    if flags[16] == 1
+28      32bit   entry_addr      if flags[16] == 1
+32      32bit   mode_type       if flags[2] == 1
+36      32bit   width           if flags[2] == 1
+40      32bit   height          if flags[2] == 1
+44      32bit   depth           if flags[2] == 1
+```
+
+而这里的ucore_lab1的代码，多了mboot这个文件夹，其中的entry.asm就是规定了ucore映像的入口处，在开头处的汇编指令为
+```
+ALIGN 4
+mboot:
+    ; Multiboot macros to make a few lines more readable later
+    MULTIBOOT_PAGE_ALIGN    equ 1<<0
+    MULTIBOOT_MEMORY_INFO   equ 1<<1
+    MULTIBOOT_HEADER_MAGIC  equ 0x1BADB002
+    MULTIBOOT_HEADER_FLAGS  equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO
+    MULTIBOOT_CHECKSUM      equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+
+    ; This is the GRUB Multiboot header. A boot signature
+    dd MULTIBOOT_HEADER_MAGIC
+    dd MULTIBOOT_HEADER_FLAGS
+    dd MULTIBOOT_CHECKSUM
+    dd 0, 0, 0, 0, 0 ; address fields
+```
+这段代码使用equ与dd伪指令，定义了上面头部中的magic number与flags等值，而在multiboot.c与multiboot.h中则定义了其他的一些启动时候的参数。接下来一条call kern_init就跳到了ucore的启动代码处，此时就与之前的lab1 bootloader执行完成之后的步骤相同了。
+
+注意在makefile生成grub_kernel的规则中的代码
+```
+$(grub_kernel): mboot/link.ld
+
+$(grub_kernel): $(KOBJS)
+    nasm -felf32 -g -o obj/mboot/entry.o mboot/entry.asm
+    @echo + ld $@
+    $(V)$(LD) $(LDFLAGS) -T mboot/link.ld -o $@ $(KOBJS) obj/mboot/entry.o
+    @$(OBJDUMP) -S $@ > $(call asmfile,kernel)
+    @$(OBJDUMP) -t $@ | $(SED) '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(call symfile,kernel)
+```
+首先调用nasm工具将entry.asm汇编成目标代码entry.o，在链接的时候将entry.o放到了grub_kernel这个镜像的头部，这就使得grub能够识别这个镜像，从而引导ucore。
+
 ### (2)(spoc) 理解用户程的生命周期。
 
 > 需写练习报告和简单编码，完成后放到git server 对应的git repo中
@@ -66,3 +119,70 @@ https://github.com/chyyuu/ucore_lab/blob/master/related_info/lab1/lab1-boot-with
 能够把个人思考题和上述知识点中的内容展示出来：即在ucore运行过程中通过`cprintf`函数来完整地展现出来进程A相关的动态执行和内部数据/状态变化的细节。(约全面细致约好)
 
 请完成如下练习，完成代码填写，并形成spoc练习报告
+
+代码和报告参见https://github.com/BrieflyX/ucore_lab/tree/master/related_info/lab5
+报告具体内容如下
+
+#### spoc练习报告
+
+内核创建用户进程的方法就是调用user_main函数来创建用户进程，user_main函数调用kernel_execve函数使用int指令发出一个软中断，接着就进行系统调用do_execve处理，在这个函数中会设置好进程的cr3寄存器与内存空间，然后调用load_icode函数载入ELF格式的二进制用户程序文件，而在load_icode中初始化trapframe的代码为
+
+```
+tf->tf_cs = USER_CS;
+tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
+tf->tf_esp = USTACKTOP;
+tf->tf_eip = elf->e_entry;
+tf->tf_eflags = FL_IF;
+```
+
+将相应的段寄存器都设为了USER_CS或USER_DS，esp设为了USTACKTOP，这样表明这个进程运行在用户态。
+切换到用户态的过程是在trap中实现的，在do_execve结束后此进程处于RUNNABLE状态等待调度，在下一次系统因为时钟中断调用schedule函数时，proc_run函数将调用switch_to将相应的段寄存器设置好。然后在trapentry.S的尾部有一段代码
+
+```
+# call trap(tf), where tf=%esp
+    call trap
+
+    # pop the pushed stack pointer
+    popl %esp
+
+    # return falls through to trapret...
+.globl __trapret
+__trapret:
+    # restore registers from stack
+    popal
+
+    # restore %ds, %es, %fs and %gs
+    popl %gs
+    popl %fs
+    popl %es
+    popl %ds
+
+    # get rid of the trap number and error code
+    addl $0x8, %esp
+    iret
+
+.globl forkrets
+forkrets:
+    # set stack to this new process's trapframe
+    movl 4(%esp), %esp
+    jmp __trapret
+```
+
+调用完trap后，连续使用6个popl语句恢复了当前程序执行的现场，最后用一条iret指令切换到用户态。
+
+而在memlayout.h中有宏定义
+```
+#define USERTOP             0xB0000000
+#define USTACKTOP           USERTOP
+#define USTACKPAGE          256                         // # of pages in user stack
+#define USTACKSIZE          (USTACKPAGE * PGSIZE)       // sizeof user stack
+```
+规定了用户态的堆栈顶在0xB000000处。
+
+用户进程相关函数
+1. 启动、运行：do_execve, proc_run; 等待: do_wait; 退出: do_exit
+2. 管理与调度: schedule
+3. 上下文切换: switch_to
+4. 特权级切换: trapentry.S
+5. 创建过程并完成资源占用: alloc_proc -> do_fork -> do_execve -> load_icode
+6. 退出并完成资源回收: do_exit -> init_main （由initproc内核线程回收）
